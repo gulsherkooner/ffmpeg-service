@@ -5,8 +5,8 @@ services:
     ports:
       - "8567:8567"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro # Docker socket access
-      - video-temp:/tmp/videos # Shared volume
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - video-temp:/tmp/videos
     networks:
       - cent-stage-network
     restart: unless-stopped
@@ -14,11 +14,6 @@ services:
       - ffmpeg-worker
     environment:
       - NODE_ENV=production
-    deploy:
-      resources:
-        limits:
-          memory: 1G # Resource limits
-          cpus: "1.0"
 
   ffmpeg-worker:
     image: jrottenberg/ffmpeg:latest
@@ -27,21 +22,16 @@ services:
     networks:
       - cent-stage-network
     restart: unless-stopped
-    command: ["sh", "-c", "sleep infinity"] # ✅ Fixed command with shell
-    deploy:
-      resources:
-        limits:
-          memory: 2G # More memory for video processing
-          cpus: "2.0" # More CPU for transcoding
+    command: ["sh", "-c", "sleep infinity"]
     healthcheck:
-      test: ["CMD", "ps", "aux", "|", "grep", "sleep"] # Health check
+      test: ["CMD", "sh", "-c", "ps aux | grep -v grep | grep sleep"] # ✅ Fixed
       interval: 30s
       timeout: 10s
       retries: 3
 
 volumes:
   video-temp:
-    driver: local # Explicit driver
+    driver: local
 
 networks:
   cent-stage-network:
