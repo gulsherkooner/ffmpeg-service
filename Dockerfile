@@ -8,8 +8,9 @@ COPY package*.json ./
 RUN npm install --production
 
 # Copy source code
+COPY index.js ./
 COPY src/ ./src/
 
 EXPOSE 8567
 
-CMD ["node", "src/app.js"]
+CMD ["node", "index.js"]
