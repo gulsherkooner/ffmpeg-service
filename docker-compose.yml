@@ -22,7 +22,7 @@ services:
     networks:
       - cent-stage-network
     restart: unless-stopped
-    command: ["tail", "-f", "/dev/null"]
+    command: ["cat"]
 
 volumes:
   video-temp:
