@@ -67,66 +67,70 @@ class FFmpegService {
     const { originalUrl, fileName, baseName, timestamp, dbxAccessToken } =
       options;
     let tempFiles = [];
+    let inputPath = null;
 
     try {
       logger.info(
         `Starting transcoding process for ${fileName} (Job processing)`
       );
 
-      // 1. Download original video from Dropbox
+      // 1. Download and create input file
       const inputBuffer = await this.downloadFromDropbox(originalUrl);
-
-      // 2. Create temp input file
       const tempId = `${timestamp}-${Math.random().toString(36).substring(7)}`;
       const inputFile = `input-${tempId}.mp4`;
-      const inputPath = path.join(SHARED_VIDEO_PATH, inputFile);
+      inputPath = path.join(SHARED_VIDEO_PATH, inputFile);
 
       if (!fs.existsSync(SHARED_VIDEO_PATH)) {
         fs.mkdirSync(SHARED_VIDEO_PATH, { recursive: true });
       }
       fs.writeFileSync(inputPath, inputBuffer);
-      tempFiles.push(inputPath);
 
-      // 3. Probe video
+      // 2. Probe video
       const probe = await this.probeVideo(inputFile);
       logger.info(
-        `Video probe: ${probe.width}x${probe.height}, audio=${probe.hasAudio}, duration=${probe.duration}s`
+        `Video probe: ${probe.width}x${probe.height}, audio=${probe.hasAudio}`
       );
 
-      // 4. Define variant paths
+      // 3. Define targets and output paths
       const paths = {
         p1080: `/${timestamp}-${baseName}-1080p.mp4`,
         p720: `/${timestamp}-${baseName}-720p.mp4`,
         p480: `/${timestamp}-${baseName}-480p.mp4`,
         p360: `/${timestamp}-${baseName}-360p.mp4`,
       };
-
-      // 5. Get optimal targets
       const targets = this.getOptimalTargets(probe.width, probe.height, paths);
 
-      // 6. ✅ Process ALL variants CONCURRENTLY (for same user)
-      const variantPromises = targets.map((target) =>
-        this.processVariantWithFallbacks(
-          target,
-          inputFile,
-          tempId,
-          probe.hasAudio,
-          [...tempFiles], // Copy array to avoid conflicts
-          dbxAccessToken
-        )
-      );
+      // 4. ✅ Process variants with individual cleanup
+      const variantPromises = targets.map(async (target) => {
+        const outputFile = `output-${tempId}-${target.h}p.mp4`;
+        const outputPath = path.join(SHARED_VIDEO_PATH, outputFile);
 
-      // Wait for all variants to complete
+        try {
+          await this.processVariantWithFallbacks(
+            target,
+            inputFile,
+            tempId,
+            probe.hasAudio,
+            outputPath, // Pass specific output path
+            dbxAccessToken
+          );
+        } finally {
+          // ✅ Clean up this variant's output file immediately
+          this.cleanupSingleFile(outputPath);
+        }
+      });
+
       await Promise.allSettled(variantPromises);
-
       logger.info(`Transcoding completed successfully for ${fileName}`);
       return { success: true, variants: targets.length };
     } catch (error) {
       logger.error(`Transcoding process failed: ${error.message}`);
       throw error;
     } finally {
-      // Cleanup temp files
-      this.cleanupTempFiles(tempFiles);
+      // ✅ Always clean up input file
+      if (inputPath) {
+        this.cleanupSingleFile(inputPath);
+      }
     }
   }
 
@@ -233,20 +237,18 @@ class FFmpegService {
     return targets;
   }
 
+  // ✅ Updated method signature
   async processVariantWithFallbacks(
     target,
     inputFile,
     tempId,
     hasAudio,
-    tempFiles,
+    outputPath,
     dbxAccessToken
   ) {
     logger.info(`Transcoding ${target.h}p`);
 
-    // Create unique output file for this variant
-    const outputFile = `output-${tempId}-${target.h}p.mp4`;
-    const outputPath = path.join(SHARED_VIDEO_PATH, outputFile);
-    tempFiles.push(outputPath);
+    const outputFile = path.basename(outputPath);
 
     const strategies = [
       () => this.transcodeOptimal(inputFile, outputFile, target.h, hasAudio),
@@ -276,7 +278,7 @@ class FFmpegService {
                 stats.size
               } bytes)`
             );
-            return;
+            return; // Success - file will be cleaned in finally block
           }
         }
       } catch (e) {
@@ -358,16 +360,21 @@ class FFmpegService {
     await execAsync(cmd, { timeout: 300000 });
   }
 
-  cleanupTempFiles(tempFiles) {
-    tempFiles.forEach((filePath) => {
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (e) {
-        logger.warn(`Failed to cleanup temp file ${filePath}: ${e.message}`);
+  // ✅ Helper method for single file cleanup
+  cleanupSingleFile(filePath) {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        logger.debug(`Cleaned up temp file: ${filePath}`);
       }
-    });
+    } catch (e) {
+      logger.warn(`Failed to cleanup temp file ${filePath}: ${e.message}`);
+    }
+  }
+
+  // ✅ Keep existing method for batch cleanup if needed
+  cleanupTempFiles(tempFiles) {
+    tempFiles.forEach((filePath) => this.cleanupSingleFile(filePath));
   }
 }
 
