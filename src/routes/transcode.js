@@ -6,25 +6,22 @@ const logger = require("../config/logger");
 // POST /transcode - Queue transcoding job
 router.post("/", async (req, res) => {
   try {
-    const { originalUrl, fileName, baseName, timestamp, dbxAccessToken } =
-      req.body;
+    const { originalUrl, fileKey } = req.body;
 
-    if (!originalUrl || !fileName || !dbxAccessToken) {
+    if (!originalUrl || !fileKey) {
       return res.status(400).json({
         success: false,
-        error: "Missing required fields: originalUrl, fileName, dbxAccessToken",
+        error: "Missing required fields: originalUrl, fileKey",
       });
     }
 
-    logger.info(`Transcoding request received for ${fileName}`);
+    logger.info(`Transcoding request received for ${fileKey}`);
 
     // Add to queue instead of processing immediately
     const result = await ffmpegService.queueTranscoding({
       originalUrl,
-      fileName,
-      baseName: baseName || fileName.split(".")[0],
+      fileKey,
       timestamp: timestamp || Date.now(),
-      dbxAccessToken,
     });
 
     res.json({
