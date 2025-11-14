@@ -2,6 +2,8 @@ services:
   ffmpeg-service:
     build: .
     image: ffmpeg-service:latest
+    env_file:
+      - /root/cent-stage/ffmpeg-service/.env
     ports:
       - "8567:8567"
     volumes:
