@@ -1,4 +1,6 @@
 import { S3Client } from "@aws-sdk/client-s3";
+const dotenv = require("dotenv");
+dotenv.config();
 
 export const s3Client = new S3Client({
   region: "eu-central-1", // Region doesn’t matter for Hetzner but required

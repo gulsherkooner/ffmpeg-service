@@ -1,3 +1,5 @@
+const dotenv = require("dotenv");
+dotenv.config();
 const fetch = require("node-fetch");
 const logger = require("../config/logger");
 const { s3Client } = require("../utils/s3Client");

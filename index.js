@@ -1,9 +1,9 @@
 const express = require("express");
+const dotenv = require("dotenv");
+dotenv.config();
 const corsMiddleware = require("./src/config/cors");
 const transcodeRouter = require("./src/routes/transcode");
 const logger = require("./src/config/logger");
-const dotenv = require("dotenv");
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8567;
