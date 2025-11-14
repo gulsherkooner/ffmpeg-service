@@ -2,10 +2,10 @@ const { exec } = require("child_process");
 const util = require("util");
 const fs = require("fs");
 const path = require("path");
-const fetch = require("node-fetch");
 const Queue = require("bull");
 const HetznerService = require("./HetznerService");
 const logger = require("../config/logger");
+const { Readable } = require("stream");
 
 const execAsync = util.promisify(exec);
 const SHARED_VIDEO_PATH = "/tmp/videos";
@@ -65,8 +65,8 @@ class FFmpegService {
   }
 
   async processVideoVariants(options) {
-    const { fileKey, mediaContent, timestamp = Date.now() } = options; 
-    let tempFiles = [];
+    const { fileKey, mediaContent, timestamp = Date.now() } = options;
+    // let tempFiles = [];
     let inputPath = null;
 
     try {
@@ -84,11 +84,12 @@ class FFmpegService {
       }
 
       // Download as stream and save to file
-      const videoStream = Buffer.from(mediaContent, "base64");
+      const buffer = Buffer.from(mediaContent, "base64");
       await new Promise((resolve, reject) => {
+        const readable = Readable.from(buffer);
         const writeStream = fs.createWriteStream(inputPath);
-        videoStream.pipe(writeStream);
-        videoStream.on("error", reject);
+        readable.pipe(writeStream);
+        readable.on("error", reject);
         writeStream.on("finish", resolve);
         writeStream.on("error", reject);
       });
@@ -232,8 +233,7 @@ class FFmpegService {
     inputFile,
     tempId,
     hasAudio,
-    outputPath,
-    dbxAccessToken
+    outputPath
   ) {
     logger.info(`Transcoding ${target.h}p`);
 
@@ -355,9 +355,9 @@ class FFmpegService {
     }
   }
 
-  cleanupTempFiles(tempFiles) {
-    tempFiles.forEach((filePath) => this.cleanupSingleFile(filePath));
-  }
+  // cleanupTempFiles(tempFiles) {
+  //   tempFiles.forEach((filePath) => this.cleanupSingleFile(filePath));
+  // }
 }
 
 module.exports = new FFmpegService();
