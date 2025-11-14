@@ -21,7 +21,7 @@ router.post("/", async (req, res) => {
     const result = await ffmpegService.queueTranscoding({
       fileKey,
       mediaContent,
-      timestamp: timestamp || Date.now(),
+      timestamp: Date.now(),
     });
 
     res.json({

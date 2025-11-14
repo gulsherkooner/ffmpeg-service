@@ -65,7 +65,7 @@ class FFmpegService {
   }
 
   async processVideoVariants(options) {
-    const { fileKey, mediaContent, timestamp } = options;
+    const { fileKey, mediaContent, timestamp = Date.now() } = options; 
     let tempFiles = [];
     let inputPath = null;
 
