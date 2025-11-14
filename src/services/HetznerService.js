@@ -1,5 +1,6 @@
 const fetch = require("node-fetch");
 const logger = require("../config/logger");
+const { PutObjectCommand } = require("@aws-sdk/client-s3");
 
 class HetznerService {
   async uploadBuffer(buffer, pathLower) {
@@ -26,14 +27,26 @@ class HetznerService {
       }
 
       const { uploadUrl, publicUrl } = await uploadUrlResponse.json();
-      const res = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: buffer,
+      const command = new PutObjectCommand({
+        Bucket: process.env.HETZNER_BUCKET,
+        Key: pathLower,
+        Body: buffer,
+        ContentType: "application/octet-stream",
       });
 
-      if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
-      logger.info(`Upload successful for ${pathLower}`);
+      await s3Client
+        .send(command)
+        .then(() => {
+          logger.info(`✅ Uploaded original video to S3 via SDK: ${pathLower}`);
+          return;
+        })
+        .catch((err) => {
+          logger.error("❌ Upload failed via SDK:", err);
+          throw new Error(
+            `Failed to upload ${pathLower} via SDK: ${err.message}`
+          );
+          return;
+        });
 
       return pathLower.includes("public") ? publicUrl : pathLower;
     } catch (error) {

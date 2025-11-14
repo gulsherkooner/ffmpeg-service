@@ -65,7 +65,7 @@ class FFmpegService {
   }
 
   async processVideoVariants(options) {
-    const { originalUrl, fileKey, timestamp } = options;
+    const { fileKey, mediaContent, timestamp } = options;
     let tempFiles = [];
     let inputPath = null;
 
@@ -84,7 +84,7 @@ class FFmpegService {
       }
 
       // Download as stream and save to file
-      const videoStream = await this.downloadFromDropbox(originalUrl, fileKey);
+      const videoStream = Buffer.from(mediaContent, "base64");
       await new Promise((resolve, reject) => {
         const writeStream = fs.createWriteStream(inputPath);
         videoStream.pipe(writeStream);
@@ -168,61 +168,6 @@ class FFmpegService {
       processedAt: job.processedOn ? new Date(job.processedOn) : null,
       finishedAt: job.finishedOn ? new Date(job.finishedOn) : null,
     };
-  }
-
-  // ✅ Download as stream
-  async downloadFromDropbox(originalUrl, fileKey) {
-    try {
-      if (originalUrl.includes("public")) {
-        logger.info(`Downloading public file directly: ${originalUrl}`);
-        const response = await fetch(originalUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        return response.body; // stream
-      }
-
-      logger.info(`Getting signed download URL for private file: ${fileKey}`);
-
-      const downloadUrlResponse = await fetch(
-        `http://auth-service:3002/URLs/download-url`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            fileKey: fileKey,
-            expiresIn: 600,
-          }),
-        }
-      );
-
-      if (!downloadUrlResponse.ok) {
-        const errorText = await downloadUrlResponse.text();
-        throw new Error(
-          `Failed to get download URL: ${downloadUrlResponse.status} - ${errorText}`
-        );
-      }
-
-      const downloadUrlData = await downloadUrlResponse.json();
-
-      if (!downloadUrlData.downloadUrl) {
-        throw new Error("No download URL returned from API");
-      }
-
-      logger.info(`Got signed download URL for private file: ${fileKey}`);
-
-      const response = await fetch(downloadUrlData.downloadUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      return response.body; // stream
-    } catch (error) {
-      logger.error(`Failed to download from storage: ${error.message}`);
-      throw error;
-    }
   }
 
   async probeVideo(inputFile) {
@@ -311,11 +256,7 @@ class FFmpegService {
           const stats = fs.statSync(outputPath);
           if (stats.size > 1024) {
             const transcodedBuffer = fs.readFileSync(outputPath);
-            await HetznerService.uploadBuffer(
-              transcodedBuffer,
-              target.path,
-              dbxAccessToken
-            );
+            await HetznerService.uploadBuffer(transcodedBuffer, target.path);
 
             logger.info(
               `Uploaded ${target.h}p ${target.path} (strategy ${i + 1}, size: ${
