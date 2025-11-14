@@ -1,5 +1,3 @@
-const dotenv = require("dotenv");
-dotenv.config();
 const fetch = require("node-fetch");
 const logger = require("../config/logger");
 const { s3Client } = require("../utils/s3Client");
@@ -30,6 +28,11 @@ class HetznerService {
       }
 
       const { uploadUrl, publicUrl } = await uploadUrlResponse.json();
+      const bucket = process.env.HETZNER_BUCKET;
+      logger.info(`Received upload URL from auth-service.`, {
+        bucket,
+        pathLower,
+      });
       const command = new PutObjectCommand({
         Bucket: process.env.HETZNER_BUCKET,
         Key: pathLower,
