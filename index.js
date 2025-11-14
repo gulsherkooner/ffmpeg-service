@@ -1,6 +1,9 @@
 const express = require("express");
-const dotenv = require("dotenv");
-dotenv.config();
+// const dotenv = require("dotenv");
+const path = require("path");
+require("dotenv").config({
+  path: path.join(__dirname, ".env"),
+});
 const corsMiddleware = require("./src/config/cors");
 const transcodeRouter = require("./src/routes/transcode");
 const logger = require("./src/config/logger");
